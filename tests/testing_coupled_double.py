@@ -3,12 +3,12 @@ import torch
 from deepymod_torch.library_function import library_1D_in
 from deepymod_torch.DeepMod import DeepMoD
 
-torch.set_default_tensor_type('torch.cuda.FloatTensor')  # enable for gpu.
+#torch.set_default_tensor_type('torch.cuda.FloatTensor')  # enable for gpu.
 
 np.random.seed(42)
 number_of_samples = 2000
 
-data = np.load('data/processed/burgers.npy', allow_pickle=True).item()
+data = np.load('../data/processed/burgers.npy', allow_pickle=True).item()
 
 X = np.transpose((data['t'].flatten(), data['x'].flatten()))
 y = np.real(data['u']).reshape((data['u'].size, 1))

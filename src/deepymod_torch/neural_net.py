@@ -92,66 +92,103 @@ def train(data, target, network, coeff_vector_list, sparsity_mask_list, library_
     max_iterations = optim_config['max_iterations']
     l1 = optim_config['lambda']
     library_function = library_config['type']
-
-    optimizer = torch.optim.Adam([{'params': network.parameters(), 'lr': 0.002}, {'params': coeff_vector_list, 'lr': 0.002}])
-
+    optim_type = optim_config['type']
+    
+    if optim_type == 'full':
+        optimizer = torch.optim.Adam([{'params': network.parameters(), 'lr': 0.002}, {'params': coeff_vector_list, 'lr': 0.002}])
+    if optim_type == 'reg':
+        optimizer = torch.optim.Adam([{'params': coeff_vector_list, 'lr': 0.002}])
+    if optim_type == 'mse':
+        optimizer = torch.optim.Adam([{'params': network.parameters(), 'lr': 0.002}])
+    
     # preparing tensorboard writer
     writer = SummaryWriter()
     writer.add_custom_scalars(custom_board(coeff_vector_list))
 
     # Training
-    print('Epoch | Total loss | MSE | PI | L1 ')
+    if optim_type == 'full':
+        print('Epoch | Total loss | MSE | PI | L1 ')
+    if optim_type == 'mse':
+        print('Epoch | Total loss | MSE')
+    if optim_type == 'reg':
+        print('Epoch | Total loss | PI | L1 ')
+        
     for iteration in np.arange(max_iterations):
         # Calculating prediction and library
         prediction = network(data)
-        time_deriv_list, theta = library_function(data, prediction, library_config)
-        sparse_theta_list = [theta[:, sparsity_mask] for sparsity_mask in sparsity_mask_list]
-
-        # Scaling
-        coeff_vector_scaled_list = [scaling(coeff_vector, sparse_theta, time_deriv) for time_deriv, sparse_theta, coeff_vector in zip(time_deriv_list, sparse_theta_list, coeff_vector_list)]
-
-        # Calculating PI
-        reg_cost_list = torch.stack([torch.mean((time_deriv - sparse_theta @ coeff_vector)**2) for time_deriv, sparse_theta, coeff_vector in zip(time_deriv_list, sparse_theta_list, coeff_vector_list)])
-        loss_reg = torch.sum(reg_cost_list)
-
+         
         # Calculating MSE
-        MSE_cost_list = torch.mean((prediction - target)**2, dim=0)
-        loss_MSE = torch.sum(MSE_cost_list)
+        
+        if optim_type == 'full' or optim_type == 'mse': 
+            MSE_cost_list = torch.mean((prediction - target)**2, dim=0)
+            loss_MSE = torch.sum(MSE_cost_list)
+        
+        if optim_type == 'full' or optim_type == 'reg': 
+            time_deriv_list, theta = library_function(data, prediction, library_config)
+            sparse_theta_list = [theta[:, sparsity_mask] for sparsity_mask in sparsity_mask_list]
+            
+            # Scaling
+            coeff_vector_scaled_list = [scaling(coeff_vector, sparse_theta, time_deriv) for time_deriv, sparse_theta, coeff_vector in zip(time_deriv_list, sparse_theta_list, coeff_vector_list)]
 
-        # Calculating L1
-        l1_cost_list = torch.stack([torch.sum(torch.abs(coeff_vector_scaled)) for coeff_vector_scaled in coeff_vector_scaled_list])
-        loss_l1 = l1 * torch.sum(l1_cost_list)
+            # Calculating PI
+            reg_cost_list = torch.stack([torch.mean((time_deriv - sparse_theta @ coeff_vector)**2) for time_deriv, sparse_theta, coeff_vector in zip(time_deriv_list, sparse_theta_list, coeff_vector_list)])
+            loss_reg = torch.sum(reg_cost_list)
 
-        # Calculating total loss
-        loss = loss_MSE + loss_reg + loss_l1
+            # Calculating L1
+            l1_cost_list = torch.stack([torch.sum(torch.abs(coeff_vector_scaled)) for coeff_vector_scaled in coeff_vector_scaled_list])
+            loss_l1 = l1 * torch.sum(l1_cost_list)
 
+            # Calculating total loss
+            
+        if optim_type == 'full':
+            loss = loss_MSE + loss_reg + loss_l1
+            
+        if optim_type == 'mse':
+            loss = loss_MSE
+        
+        if optim_type == 'reg':
+            loss = loss_reg
+            
         # Optimizer step
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
         # Tensorboard stuff
-        if iteration % 50 == 0:
-            writer.add_scalar('Total loss', loss, iteration)
-            for idx in np.arange(len(MSE_cost_list)):
-                # Costs
-                writer.add_scalar('MSE '+str(idx), MSE_cost_list[idx], iteration)
-                writer.add_scalar('Regression '+str(idx), reg_cost_list[idx], iteration)
-                writer.add_scalar('L1 '+str(idx), l1_cost_list[idx], iteration)
+        if optim_type == 'full':
+            if iteration % 50 == 0:
+                writer.add_scalar('Total loss', loss, iteration)
+                for idx in np.arange(len(MSE_cost_list)):
+                    # Costs
+                    writer.add_scalar('MSE '+str(idx), MSE_cost_list[idx], iteration)
+                    writer.add_scalar('Regression '+str(idx), reg_cost_list[idx], iteration)
+                    writer.add_scalar('L1 '+str(idx), l1_cost_list[idx], iteration)
 
-                # Coefficients
-                for element_idx, element in enumerate(torch.unbind(coeff_vector_list[idx])):
-                    writer.add_scalar('coeff ' + str(idx) + ' ' + str(element_idx), element, iteration)
+                    # Coefficients
+                    for element_idx, element in enumerate(torch.unbind(coeff_vector_list[idx])):
+                        writer.add_scalar('coeff ' + str(idx) + ' ' + str(element_idx), element, iteration)
 
-                # Scaled coefficients
-                for element_idx, element in enumerate(torch.unbind(coeff_vector_scaled_list[idx])):
-                    writer.add_scalar('scaled_coeff ' + str(idx) + ' ' + str(element_idx), element, iteration)
+                    # Scaled coefficients
+                    for element_idx, element in enumerate(torch.unbind(coeff_vector_scaled_list[idx])):
+                        writer.add_scalar('scaled_coeff ' + str(idx) + ' ' + str(element_idx), element, iteration)
 
         # Printing
+        
         if iteration % 500 == 0:
-            print(iteration, "%.1E" % loss.item(), "%.1E" % loss_MSE.item(), "%.1E" % loss_reg.item(), "%.1E" % loss_l1.item())
-            for coeff_vector in zip(coeff_vector_list, coeff_vector_scaled_list):
-                print(coeff_vector[0])
-
+            if optim_type == 'full': 
+                print(iteration, "%.1E" % loss.item(), "%.1E" % loss_MSE.item(), "%.1E" % loss_reg.item(), "%.1E" % loss_l1.item())
+                for coeff_vector in zip(coeff_vector_list, coeff_vector_scaled_list):
+                    print(coeff_vector[0])
+            
+            elif optim_type == 'mse': 
+                print(iteration, "%.1E" % loss.item(), "%.1E" % loss_MSE.item())
+                
+            elif optim_type == 'reg':
+                print(iteration, "%.1E" % loss.item(), "%.1E" % loss_reg.item(), "%.1E" % loss_l1.item())
+                for coeff_vector in zip(coeff_vector_list, coeff_vector_scaled_list):
+                    print(coeff_vector[0])
     writer.close()
-    return time_deriv_list, theta, coeff_vector_list
+    if optim_type == 'full' or optim_type == 'reg':
+        return time_deriv_list, theta, coeff_vector_list
+    else:
+        return 

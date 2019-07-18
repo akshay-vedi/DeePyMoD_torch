@@ -39,6 +39,7 @@ def DeepMoD(data, target, network_config, library_config, optim_config):
     '''
 
     optim_config_internal = optim_config.copy()
+    optim_config_internal['type'] = 'full'
 
     # Initiating
     network, coeff_vector_list, sparsity_mask_list = deepmod_init(network_config, library_config)
