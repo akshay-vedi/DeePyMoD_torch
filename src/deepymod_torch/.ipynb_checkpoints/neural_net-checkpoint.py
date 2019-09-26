@@ -206,12 +206,12 @@ def train_group(data, target, network, coeff_vector_list, sparsity_mask_list, li
     for iteration in np.arange(max_iterations):
         # Calculating prediction and library
         prediction = network(data)
-        time_deriv_list, theta = library_function(data, prediction, library_config)
-        # sparse_theta_list = [theta[sparsity_mask] for sparsity_mask in sparsity_mask_list]
-        sparse_theta_list = [theta[sparsity_mask] for sparsity_mask in np.arange(0,len(theta))]
-        print(len(sparse_theta_list))
+        time_deriv_list, theta_list = library_function(data, prediction, library_config)
+        sparse_theta_list = [theta[:, sparsity_mask] for theta, sparsity_mask in zip(theta_list, sparsity_mask_list)]
+        
         # Scaling
         coeff_vector_scaled_list = [scaling(coeff_vector, sparse_theta, time_deriv) for time_deriv, sparse_theta, coeff_vector in zip(time_deriv_list, sparse_theta_list, coeff_vector_list)]
+
 
         # Calculating PI
         reg_cost_list = torch.stack([torch.mean((time_deriv - sparse_theta @ coeff_vector)**2) for time_deriv, sparse_theta, coeff_vector in zip(time_deriv_list, sparse_theta_list, coeff_vector_list)])
@@ -222,7 +222,9 @@ def train_group(data, target, network, coeff_vector_list, sparsity_mask_list, li
         loss_MSE = torch.sum(MSE_cost_list)
 
         # Calculating L1
-        l1_cost_list = torch.stack([torch.sum(torch.abs(coeff_vector_scaled)) for coeff_vector_scaled in coeff_vector_scaled_list])
+        
+        l1_cost_list = torch.sqrt(torch.sum(torch.cat(coeff_vector_scaled_list, dim=1)**2, dim=1))
+      
         loss_l1 = l1 * torch.sum(l1_cost_list)
 
         # Calculating total loss
@@ -232,7 +234,7 @@ def train_group(data, target, network, coeff_vector_list, sparsity_mask_list, li
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        '''
+        
         # Tensorboard stuff
         if iteration % 50 == 0:
             writer.add_scalar('Total loss', loss, iteration)
@@ -240,7 +242,7 @@ def train_group(data, target, network, coeff_vector_list, sparsity_mask_list, li
                 # Costs
                 writer.add_scalar('MSE '+str(idx), MSE_cost_list[idx], iteration)
                 writer.add_scalar('Regression '+str(idx), reg_cost_list[idx], iteration)
-                writer.add_scalar('L1 '+str(idx), l1_cost_list[idx], iteration)
+          #      writer.add_scalar('L1 '+str(idx), l1_cost_list[idx], iteration)
 
                 # Coefficients
                 for element_idx, element in enumerate(torch.unbind(coeff_vector_list[idx])):
@@ -249,7 +251,7 @@ def train_group(data, target, network, coeff_vector_list, sparsity_mask_list, li
                 # Scaled coefficients
                 for element_idx, element in enumerate(torch.unbind(coeff_vector_scaled_list[idx])):
                     writer.add_scalar('scaled_coeff ' + str(idx) + ' ' + str(element_idx), element, iteration)
-        '''
+        
         # Printing
     
         if iteration % 500 == 0:
@@ -258,4 +260,4 @@ def train_group(data, target, network, coeff_vector_list, sparsity_mask_list, li
                 print(coeff_vector[0])
 
     writer.close()
-    return time_deriv_list, theta, coeff_vector_list
+    return time_deriv_list, theta_list, coeff_vector_list
