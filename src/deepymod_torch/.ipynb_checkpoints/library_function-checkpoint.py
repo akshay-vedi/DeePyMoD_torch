@@ -145,54 +145,37 @@ def library_2Din_1Dout(data, prediction, library_config):
         
         return [u_t], theta
 
-    
-def library_1D_in_group(data, prediction, library_config):
-    '''
-    Calculates a library function for a 1D+1 input for M coupled equations consisting of all polynomials up to order K and derivatives up to order
-    L and all possible combinations (i.e. combining two terms) of these.
 
-    Parameters
-    ----------
-    data : tensor of size (N x 2)
-        coordinates to whose respect the derivatives of prediction are calculated. First column is time, space second column.
-    prediction : tensor of size (N x M)
-        dataset from which the library is constructed.
-    library_config : dict
-        dictionary containing options for the library function.
+def library_2Din_1Dout_PINN(data, prediction, library_config):
+        '''
+        Constructs a library graph in 1D. Library config is dictionary with required terms.
+        '''
 
-    Returns
-    -------
-    time_deriv_list : tensor list of length of M
-        list containing the time derivatives, each entry corresponds to an equation.
-    theta : tensor
-        library matrix tensor.
-    '''
-    poly_list = []
-    deriv_list = []
-    time_deriv_list = []
-    theta = []
-    theta_list = []
-    
-    # Creating lists for all outputs
-    for output in torch.arange(prediction.shape[1]):
-        time_deriv, du = library_deriv(data, prediction[:, output:output+1], library_config)
-        u = library_poly(prediction[:, output:output+1], library_config)
+        # Polynomial
+        
+        max_order = library_config['poly_order']
+        u = torch.ones_like(prediction)
 
-        poly_list.append(u)
-        deriv_list.append(du)
-        time_deriv_list.append(time_deriv)
+        for order in np.arange(1, max_order+1):
+            u = torch.cat((u, u[:, order-1:order] * prediction), dim=1)
 
-    samples = time_deriv_list[0].shape[0]
-    total_terms = poly_list[0].shape[1] * deriv_list[0].shape[1]
-    # Calculating theta
-    if len(poly_list) == 1:
-        theta = torch.matmul(poly_list[0][:, :, None], deriv_list[0][:, None, :]).view(samples, total_terms) # If we have a single output, we simply calculate and flatten matrix product between polynomials and derivatives to get library
-    else: 
-        for output in torch.arange(prediction.shape[1]):
-            theta = torch.matmul(poly_list[output][:, :, None], deriv_list[output][:, None, :]).view(samples, total_terms) 
-            theta_list.append(theta)
+        # Gradients
+        du = grad(prediction, data, grad_outputs=torch.ones_like(prediction), create_graph=True)[0]
+        u_t = du[:, 0:1]
+        u_x = du[:, 1:2]
+        u_y = du[:, 2:3]
+        du2 = grad(u_x, data, grad_outputs=torch.ones_like(prediction), create_graph=True)[0]
+        u_xx = du2[:, 1:2]
+        u_xy = du2[:, 2:3]
+        u_yy = grad(u_y, data, grad_outputs=torch.ones_like(prediction), create_graph=True)[0][:, 2:3]
+ 
+        du = torch.cat((u_x, u_y , u_xx, u_yy), dim=1)
 
-    return time_deriv_list, theta_list
+        samples= du.shape[0]
+        # Bringing it together
+        theta = torch.matmul(u[:, :, None], du[:, None, :]).view(samples,-1)
+        
+        return [u_t], theta
 
 
 def library_1D_in_group_b(data, prediction, library_config):
@@ -223,6 +206,39 @@ def library_1D_in_group_b(data, prediction, library_config):
     # Creating lists for all outputs
     for output in torch.arange(prediction.shape[1]):
         time_deriv, theta = library_1D_in(data, prediction[:, output:output+1], library_config)
+        time_deriv_list.extend(time_deriv)
+        theta_list.append(theta)
+        
+    return time_deriv_list, theta_list
+
+def library_1D_in_group_c(data, prediction, library_config):
+    '''
+    Calculates a library function for a 1D+1 input for M coupled equations consisting of all polynomials up to order K and derivatives up to order
+    L and all possible combinations (i.e. combining two terms) of these.
+
+    Parameters
+    ----------
+    data : tensor of size (N x 2)
+        coordinates to whose respect the derivatives of prediction are calculated. First column is time, space second column.
+    prediction : tensor of size (N x M)
+        dataset from which the library is constructed.
+    library_config : dict
+        dictionary containing options for the library function.
+
+    Returns
+    -------
+    time_deriv_list : tensor list of length of M
+        list containing the time derivatives, each entry corresponds to an equation.
+    theta : tensor
+        library matrix tensor.
+    '''
+
+    time_deriv_list = []
+    theta_list = []
+    
+    # Creating lists for all outputs
+    for output in torch.arange(prediction.shape[1]):
+        time_deriv, theta = library_2Din_1Dout_PINN(data, prediction[:, output:output+1], library_config)
         time_deriv_list.extend(time_deriv)
         theta_list.append(theta)
         

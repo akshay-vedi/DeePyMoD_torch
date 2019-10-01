@@ -223,10 +223,15 @@ def train_group(data, target, network, coeff_vector_list, sparsity_mask_list, li
 
         # Calculating L1
         
-        l1_cost_list = torch.sqrt(torch.sum(torch.cat(coeff_vector_scaled_list, dim=1)**2, dim=1))
+  #      l1_cost_list = torch.sqrt(torch.sum(torch.cat(coeff_vector_scaled_list, dim=1)**2, dim=1))
       
-        loss_l1 = l1 * torch.sum(l1_cost_list)
+    #    loss_l1 = l1 * torch.sum(l1_cost_list)
 
+        
+        # Calculating L1
+        l1_cost_list = torch.stack([torch.sum(torch.abs(coeff_vector_scaled)) for coeff_vector_scaled in coeff_vector_scaled_list])
+        loss_l1 = l1 * torch.sum(l1_cost_list)
+        
         # Calculating total loss
         loss = loss_MSE + loss_reg + loss_l1
 
@@ -254,7 +259,7 @@ def train_group(data, target, network, coeff_vector_list, sparsity_mask_list, li
         
         # Printing
     
-        if iteration % 500 == 0:
+        if iteration % 2500 == 0:
             print(iteration, "%.1E" % loss.item(), "%.1E" % loss_MSE.item(), "%.1E" % loss_reg.item(), "%.1E" % loss_l1.item())
             for coeff_vector in zip(coeff_vector_list, coeff_vector_scaled_list):
                 print(coeff_vector[0])
