@@ -259,7 +259,7 @@ def train_group(data, target, network, coeff_vector_list, sparsity_mask_list, li
         
         # Printing
     
-        if iteration % 2500 == 0:
+        if iteration % 5000 == 0:
             print(iteration, "%.1E" % loss.item(), "%.1E" % loss_MSE.item(), "%.1E" % loss_reg.item(), "%.1E" % loss_l1.item())
             for coeff_vector in zip(coeff_vector_list, coeff_vector_scaled_list):
                 print(coeff_vector[0])
