@@ -44,7 +44,7 @@ def DeepMoD(data, target, network_config, library_config, optim_config):
     network, coeff_vector_list, sparsity_mask_list = deepmod_init(network_config, library_config)
 
     # Training of the network
-    time_deriv_list, theta, coeff_vector_list = train(data, target, network, coeff_vector_list, sparsity_mask_list, library_config, optim_config_internal)
+    time_deriv_list, theta_list, coeff_vector_list = train_group(data, target, network, coeff_vector_list, sparsity_mask_list, library_config, optim_config_internal)
 
     # Thresholding
     scaled_coeff_vector_list = [scaling(coeff_vector, theta, time_deriv) for coeff_vector, time_deriv in zip(coeff_vector_list, time_deriv_list)]
