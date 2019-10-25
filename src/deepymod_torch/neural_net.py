@@ -266,3 +266,79 @@ def train_group(data, target, network, coeff_vector_list, sparsity_mask_list, li
 
     writer.close()
     return time_deriv_list, theta_list, coeff_vector_list
+
+
+
+def train_group_mse(data, target, network, coeff_vector_list, sparsity_mask_list, library_config, optim_config):
+    '''
+    Trains the deepmod neural network and its coefficient vectors until maximum amount of iterations. Writes diagnostics to
+    runs/ directory which can be analyzed with tensorboard.
+    
+    Parameters
+    ----------
+    data : Tensor of size (N x M)
+        Coordinates corresponding to target data. First column must be time.
+    target : Tensor of size (N x L)
+        Data the NN is supposed to learn.
+    network : pytorch NN sequential module
+        Network to be trained.
+    coeff_vector_list : tensor list
+        List of coefficient vectors to be optimized
+    sparsity_mask_list : tensor list
+        List of sparsity masks applied to the library function.
+    library_config : dict
+        Dict containing parameters for the library function. See DeepMoD docstring.
+    optim_config : dict
+        Dict containing parameters for training. See DeepMoD docstring.
+    
+    Returns
+    -------
+    time_deriv_list : tensor list
+        list of the time derivatives after training.
+    theta : tensor
+        library matrix after training.
+    coeff_vector_list : tensor list
+        list of the trained coefficient vectors.
+    '''
+
+    max_iterations = optim_config['max_iterations']
+    l1 = optim_config['lambda']
+    library_function = library_config['type']
+
+    optimizer = torch.optim.Adam([{'params': network.parameters(), 'lr': 0.005}, {'params': coeff_vector_list, 'lr': 0.005}])
+
+    # preparing tensorboard writer
+    writer = SummaryWriter()
+    writer.add_custom_scalars(custom_board(coeff_vector_list))
+
+    # Training
+    print('Epoch | Total loss | MSE | PI | L1 ')
+    for iteration in np.arange(max_iterations):
+        # Calculating prediction and library
+        prediction = network(data)
+
+        # Calculating MSE
+        MSE_cost_list = torch.mean((prediction - target)**2, dim=0)
+        loss_MSE = torch.sum(MSE_cost_list)
+
+        # Calculating total loss
+        loss = loss_MSE 
+
+        # Optimizer step
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        
+        # Tensorboard stuff
+        if iteration % 50 == 0:
+            writer.add_scalar('Total loss', loss, iteration)
+            for idx in np.arange(len(MSE_cost_list)):
+                # Costs
+                writer.add_scalar('MSE '+str(idx), MSE_cost_list[idx], iteration)
+          #      writer.add_scalar('L1 '+str(idx), l1_cost_list[idx], iteration)
+
+        if iteration % 5000 == 0:
+            print(iteration, "%.1E" % loss.item(), "%.1E" % loss_MSE.item())
+
+    writer.close()
+    return 
