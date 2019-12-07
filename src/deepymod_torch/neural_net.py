@@ -48,8 +48,12 @@ def deepmod_init(network_config, library_config):
     library_function = library_config['type']
 
     sample_data = torch.ones(1, input_dim, requires_grad=True)  # we run a single forward pass on fake data to infer shapes
+    print(sample_data.shape)
     sample_prediction = torch_network(sample_data)
+    print(sample_prediction.shape)
     _, theta = library_function(sample_data, sample_prediction, library_config)
+    print(len(theta))
+    print(theta[0].shape)
     total_terms = theta[0].shape[1]
 
     coeff_vector_list = [torch.randn((total_terms, 1), dtype=torch.float32, requires_grad=True) for _ in torch.arange(output_dim)]
@@ -223,17 +227,17 @@ def train_group(data, target, network, coeff_vector_list, sparsity_mask_list, li
 
         # Calculating L1
         
-  #      l1_cost_list = torch.sqrt(torch.sum(torch.cat(coeff_vector_scaled_list, dim=1)**2, dim=1))
+        l1_cost_list = torch.sqrt(torch.sum(torch.cat(coeff_vector_scaled_list, dim=1)**2, dim=1))
       
-    #    loss_l1 = l1 * torch.sum(l1_cost_list)
+        loss_l1 = l1 * torch.sum(l1_cost_list)
 
         
         # Calculating L1
-        l1_cost_list = torch.stack([torch.sum(torch.abs(coeff_vector_scaled)) for coeff_vector_scaled in coeff_vector_scaled_list])
-        loss_l1 = l1 * torch.sum(l1_cost_list)
+        l1_cost_list_g = torch.stack([torch.sum(torch.abs(coeff_vector_scaled)) for coeff_vector_scaled in coeff_vector_scaled_list])
+        loss_l1_group = l1 * torch.sum(l1_cost_list_g)
         
         # Calculating total loss
-        loss = loss_MSE + loss_reg + loss_l1
+        loss = loss_MSE + loss_reg + loss_l1 + loss_l1_group
 
         # Optimizer step
         optimizer.zero_grad()
@@ -260,7 +264,7 @@ def train_group(data, target, network, coeff_vector_list, sparsity_mask_list, li
         # Printing
     
         if iteration % 5000 == 0:
-            print(iteration, "%.1E" % loss.item(), "%.1E" % loss_MSE.item(), "%.1E" % loss_reg.item(), "%.1E" % loss_l1.item())
+            print(iteration, "%.1E" % loss.item(), "%.1E" % loss_MSE.item(), "%.1E" % loss_reg.item(), "%.1E" % loss_l1.item(), "%.1E" % loss_l1_group.item())
             for coeff_vector in zip(coeff_vector_list, coeff_vector_scaled_list):
                 print(coeff_vector[0])
 
