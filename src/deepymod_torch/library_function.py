@@ -31,6 +31,47 @@ def library_poly(prediction, library_config):
     return u
 
 
+def mech_library(data, prediction, library_config):
+    '''
+    Constructs a library graph in 1D. Library config is dictionary with required terms.
+    '''
+    
+    
+    dy = grad(prediction, data, grad_outputs=torch.ones_like(prediction), create_graph=True)[0]
+    y_t = dy[:, 0:1]
+    dyy = grad(y_t, data, grad_outputs=torch.ones_like(prediction), create_graph=True)[0]
+    y_tt = dyy[:, 0:1]
+    dyyy = grad(y_tt, data, grad_outputs=torch.ones_like(prediction), create_graph=True)[0]
+    y_ttt = dyyy[:, 0:1]
+
+    # increasing stress variable, speed controlled by T
+    sigma = torch.sin(data)/data
+    sigma_t = (data*torch.cos(data) - torch.sin(data))/(data**2)
+    sigma_tt = -((data**2-2)*torch.sin(data)+2*data*torch.cos(data))/(data**3)
+    sigma_ttt = (3*(data**2-2)*torch.sin(data)-data*(data**2-6)*torch.cos(data))/(data**4)
+    sigma_tttt = (4*(data**2-6)*torch.cos(data)+(data**4-12*data**2+24)*torch.sin(data))/(data**5)
+    
+    du = torch.cat((sigma, sigma_t, sigma_tt,sigma_ttt, -prediction, -y_tt,-y_ttt), dim=1)
+    samples= du.shape[0]
+    theta = du.view(samples,-1)
+    return [y_t], theta
+
+def mech_library_group(data, prediction, library_config):
+    '''
+    Here we define a library that contains first and second order derivatives to construct a list of libraries to study a set of different advection diffusion experiments.
+    '''
+    time_deriv_list = []
+    theta_list = []
+    
+    # Creating lists for all outputs
+    for output in torch.arange(prediction.shape[1]):
+        time_deriv, theta = mech_library(data, prediction[:, output:output+1], library_config)
+        time_deriv_list.extend(time_deriv)
+        theta_list.append(theta)
+        
+    return time_deriv_list, theta_list
+
+
 def library_deriv(data, prediction, library_config):
     '''
     Calculates derivative of function u up to order M of given input, including M=0. Each column corresponds to power, i.e.
