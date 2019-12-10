@@ -195,7 +195,7 @@ def train_group(data, target, network, coeff_vector_list, sparsity_mask_list, li
     l1 = optim_config['lambda']
     library_function = library_config['type']
 
-    optimizer = torch.optim.Adam([{'params': network.parameters(), 'lr': 0.005}, {'params': coeff_vector_list, 'lr': 0.005}])
+    optimizer = torch.optim.Adam([{'params': network.parameters(), 'lr': 0.005}, {'params': coeff_vector_list, 'lr': 0.0025}])
 
     # preparing tensorboard writer
     writer = SummaryWriter()
