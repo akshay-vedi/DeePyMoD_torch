@@ -3,7 +3,6 @@ import torch
 from torch.autograd import grad
 from itertools import combinations, product
 
-
 def library_poly(prediction, library_config):
     '''
     Calculates polynomials of function u up to order M of given input, including M=0. Each column corresponds to power, i.e.
@@ -105,6 +104,36 @@ def library_deriv(data, prediction, library_config):
     return time_deriv, du
 
 
+
+def library_ODE(data, prediction, library_config):
+    '''
+    Calculates polynomials of function u up to order M of given input, including M=0. Each column corresponds to power, i.e.
+    the columns correspond to [1, u, u^2... , u^M].
+
+    Parameters
+    ----------
+    prediction : tensor of size (N x 1)
+        dataset whose polynomials are to be calculated.
+    library_config : dict
+        dictionary containing options for the library function.
+
+    Returns
+    -------
+    u : tensor of (N X (M+1))
+        Tensor containing polynomials.
+    '''
+    
+    # Creating lists for all outputs
+    
+    for output in torch.arange(prediction.shape[1]):
+        time_deriv, theta = mech_library(data, prediction[:, output:output+1], library_config)
+        time_deriv_list.extend(time_deriv)
+        theta_list.append(theta)
+        
+    return time_deriv_list, theta_list
+
+
+
 def library_1D_in(data, prediction, library_config):
     '''
     Calculates a library function for a 1D+1 input for M coupled equations consisting of all polynomials up to order K and derivatives up to order
@@ -141,7 +170,7 @@ def library_1D_in(data, prediction, library_config):
 
     samples = time_deriv_list[0].shape[0]
     total_terms = poly_list[0].shape[1] * deriv_list[0].shape[1]
-
+    print(total_terms)
     # Calculating theta
     if len(poly_list) == 1:
         theta = torch.matmul(poly_list[0][:, :, None], deriv_list[0][:, None, :]).view(samples, total_terms) # If we have a single output, we simply calculate and flatten matrix product between polynomials and derivatives to get library
@@ -200,6 +229,8 @@ def library_2D_in_1D_out_group(data, prediction, library_config):
         theta_list.append(theta)
         
     return time_deriv_list, theta_list
+
+
 
 def library_2Din_1Dout_PINN(data, prediction, library_config):
         '''
