@@ -49,12 +49,12 @@ def deepmod_init(network_config, library_config):
 
     sample_data = torch.ones(1, input_dim, requires_grad=True)  # we run a single forward pass on fake data to infer shapes
     sample_prediction = torch_network(sample_data)
+    print(sample_prediction)
     _, theta = library_function(sample_data, sample_prediction, library_config)
     total_terms = theta[0].shape[1]
 
     coeff_vector_list = [torch.randn((total_terms, 1), dtype=torch.float32, requires_grad=True) for _ in torch.arange(output_dim)]
     sparsity_mask_list = [torch.arange(total_terms) for _ in torch.arange(output_dim)]
-    print(len(coeff_vector_list))
     return torch_network, coeff_vector_list, sparsity_mask_list
 
 
