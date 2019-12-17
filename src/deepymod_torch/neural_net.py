@@ -49,7 +49,7 @@ def deepmod_init(network_config, library_config):
 
     sample_data = torch.ones(1, input_dim, requires_grad=True)  # we run a single forward pass on fake data to infer shapes
     sample_prediction = torch_network(sample_data)
-    print(sample_prediction)
+   
     _, theta = library_function(sample_data, sample_prediction, library_config)
     total_terms = theta[0].shape[1]
 
@@ -206,7 +206,10 @@ def train_group(data, target, network, coeff_vector_list, sparsity_mask_list, li
     for iteration in np.arange(max_iterations):
         # Calculating prediction and library
         prediction = network(data)
+      #  print(prediction.shape)
         time_deriv_list, theta_list = library_function(data, prediction, library_config)
+      #  print(time_deriv_list)
+      #  print(len(theta_list))
         sparse_theta_list = [theta[:, sparsity_mask] for theta, sparsity_mask in zip(theta_list, sparsity_mask_list)]
         
         # Scaling
@@ -259,7 +262,7 @@ def train_group(data, target, network, coeff_vector_list, sparsity_mask_list, li
         
         # Printing
     
-        if iteration % 5000 == 0:
+        if iteration % 1000 == 0:
             print(iteration, "%.1E" % loss.item(), "%.1E" % loss_MSE.item(), "%.1E" % loss_reg.item(), "%.1E" % loss_l1.item(), "%.1E" % loss_l1_group.item())
             for coeff_vector in zip(coeff_vector_list, coeff_vector_scaled_list):
                 print(coeff_vector[0])
