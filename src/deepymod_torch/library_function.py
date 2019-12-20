@@ -3,6 +3,7 @@ import torch
 from torch.autograd import grad
 from itertools import combinations, product
 from functools import reduce
+
 def library_poly(prediction, library_config):
     '''
     Calculates polynomials of function u up to order M of given input, including M=0. Each column corresponds to power, i.e.
