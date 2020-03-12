@@ -14,8 +14,8 @@ class Tensorboard():
         self.writer.add_scalar('Total loss', loss, iteration)
         for idx in range(len(loss_mse)):
             self.writer.add_scalar('MSE '+str(idx), loss_mse[idx], iteration)
-            self.writer.add_scalar('Regression '+str(idx), loss_reg[idx], iteration)
-            self.writer.add_scalar('L1 '+str(idx), loss_l1[idx], iteration)
+      #      self.writer.add_scalar('Regression '+str(idx), loss_reg[idx], iteration)
+      #      self.writer.add_scalar('L1 '+str(idx), loss_l1[idx], iteration)
             for element_idx, element in enumerate(torch.unbind(coeff_vector_list[idx])): # Tensorboard doesnt have vectors, so we unbind and plot them in together in custom board
                 self.writer.add_scalar('coeff ' + str(idx) + ' ' + str(element_idx), element, iteration)
             for element_idx, element in enumerate(torch.unbind(coeff_vector_scaled_list[idx])):

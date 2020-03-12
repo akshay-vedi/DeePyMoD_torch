@@ -16,7 +16,7 @@ class DeepMod(nn.Module):
         elif type == 'single_cycle':
             train(data, target, self.network, optimizer, max_iterations, loss_func_args={'l1':1e-5}) #DeepMod style training, but doesn't threshold.
         elif type == 'deepmod':
-            train_deepmod(data, target, self.network, optimizer, max_iterations, loss_func_args={'l1':1e-5}) # Does full deepmod cycle.
+            train_deepmod(data, target, self.network, optimizer, max_iterations, loss_func_args={'l1':1e-3}) # Does full deepmod cycle.
 
     def forward(self, input):
         output = self.network(input)
